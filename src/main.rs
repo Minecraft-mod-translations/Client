@@ -1,7 +1,6 @@
 mod database;
 mod req;
 
-use std::io::stdout;
 use std::{fs, io};
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -17,6 +16,9 @@ use glob::{glob, Paths};
 
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json::Value;
+use stanza::renderer::console::Console;
+use stanza::renderer::Renderer;
+use stanza::table::Table;
 use terminal_emoji::Emoji;
 use crate::database::{ModDataBase, ModsList};
 use crate::req::{request_get};
@@ -25,7 +27,7 @@ use crate::req::{request_get};
 fn main() {
     execute!(
         std::io::stdout(),
-        crossterm::terminal::SetTitle("Minecraft translated mods downloader")
+        crossterm::terminal::SetTitle("Hexagon Minecraft translated mods downloader")
     );
 
     let sty = ProgressStyle::with_template(
@@ -36,10 +38,16 @@ fn main() {
     .progress_chars("##-")
     .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
 
+    let mut table = Table::default()
+        .with_row(["Mod", "Version"]);
+
+
+
     // Getting list
     let database: Result<ModsList, String> = ModDataBase::get_list();
 
     let mut mods: HashMap<String, String> = HashMap::new();
+    let mut translated_mods: Vec<String> = vec![];
 
     match database {
         Ok(bd) => {
@@ -96,10 +104,9 @@ fn main() {
 
             let mods_count = mods.iter().count();
             if mods_count > 0 {
-
                 let pb2 = ProgressBar::new(mods_count as u64);
                 pb2.set_style(sty.clone());
-                println!("Translation of the mods...");
+                pb2.set_prefix("Translation mods");
                 for mods_dict in mods {
                     match request_get(format!("https://github.com/Minecraft-mod-translations/Cloud/raw/main/files/{}.json", mods_dict.0).as_str()) {
                         None => { println!("Error translation mod: {}", mods_dict.1) }
@@ -108,10 +115,18 @@ fn main() {
                                 Ok(json) => {
                                     let hex_string_option = json["file"].as_str();
                                     let name_option = json["name"].as_str();
+                                    let version_option = json["version"].as_str();
 
                                     match name_option {
                                         None => {}
-                                        Some(name) => { pb2.set_message(format!("{}", name));}
+                                        Some(name) => {
+                                            match version_option {
+                                                None => {}
+                                                Some(version_option) => {
+                                                    pb2.set_message(format!("{0} {1}", name, version_option));
+                                                }
+                                            }
+                                        }
                                     }
 
                                     match hex_string_option {
@@ -135,7 +150,21 @@ fn main() {
                                                         Ok(mut file_result) => {
                                                             let write_status = file_result.write_all(&*bytes);
                                                             match write_status {
-                                                                Ok(_) => {}
+                                                                Ok(_) => {
+
+                                                                    match name_option {
+                                                                        None => {}
+                                                                        Some(name) => {
+                                                                            match version_option {
+                                                                                None => {}
+                                                                                Some(version_option) => {
+                                                                                    translated_mods.push(format!("{0} {1}", name.to_string(), version_option.to_string()));
+                                                                                    table = table.with_row([name.to_string(), version_option.to_string()]);
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
                                                                 Err(_) => { println!("Error write file") }
                                                             }
                                                         }
@@ -157,6 +186,11 @@ fn main() {
                 }
                 pb2.set_message(format!("{}", "done"));
                 pb2.finish();
+                println!("Translated mods:");
+                let renderer = Console::default();
+
+                // render the table, outputting to stdout
+                println!("{}", renderer.render(&table));
             }
             else {
                 println!("No translation mods found")
