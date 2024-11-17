@@ -54,14 +54,32 @@ fn main() {
             // Mod checking
             let mut vec: Vec<PathBuf> = vec![];
 
-            let files: Paths = glob("mods//*.jar").unwrap();
+            let files: Paths = glob(".minecraft//mods//*.jar").unwrap();
 
             for path in files {
                 let p = path.unwrap();
                 vec.push(p);
             }
 
-            let count = vec.clone().iter().count();
+            let mut count = vec.clone().iter().count();
+            if count <= 0 {
+                let files: Paths = glob("mods//*.jar").unwrap();
+
+                for path in files {
+                    let p = path.unwrap();
+                    vec.push(p);
+                }
+                count = vec.clone().iter().count();
+            }
+            if count <= 0 {
+                let files: Paths = glob("*.jar").unwrap();
+
+                for path in files {
+                    let p = path.unwrap();
+                    vec.push(p);
+                }
+                count = vec.clone().iter().count();
+            }
 
             if count > 0 {
                 let pb = ProgressBar::new(count as u64);
@@ -79,16 +97,11 @@ fn main() {
 
 
                     let path_str = String::from(path2.as_path().as_os_str().to_str().unwrap());
-                    let path_str_lenght = path_str.len();
 
-
-
-                    pb.set_message(format!("{}", &path_str[5..path_str_lenght]));
+                    pb.set_message(format!("{}", path2.file_name().unwrap().to_str().unwrap()));
                     if bd.lists.contains(&hash) {
                         mods.insert(hash, path_str);
                         last_index = index;
-
-
                     }
                     pb.inc(1);
                 }
@@ -97,8 +110,9 @@ fn main() {
                 pb.finish();
             }
             else {
-                println!("Not founded minecraft mods directory");
-
+                println!("Not founded minecraft mods");
+                io::stdin().read_line(&mut String::new()).unwrap();
+                return;
             }
 
 
@@ -196,7 +210,7 @@ fn main() {
                 println!("No translation mods found")
             }
         }
-        Err(error) => {}
+        Err(error) => { println!("Error getting DataBase check you internet connection") }
     }
     io::stdin().read_line(&mut String::new()).unwrap();
 }
