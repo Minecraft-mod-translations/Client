@@ -212,6 +212,7 @@ fn main() {
         }
         Err(error) => { println!("Error getting DataBase check you internet connection") }
     }
+    #[cfg(windows)]
     io::stdin().read_line(&mut String::new()).unwrap();
 }
 
